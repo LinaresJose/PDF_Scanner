@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+*.log
+
+# Archivos Excel generados
+*.xlsx
+
+# Entornos virtuales (si el usuario los crea)
+venv/
+env/
+ENV/
+
+# Carpetas temporales y binarios externos de prueba
+poppler/
+tesseract/
+pdfs/
+extract_tess.py
+gen_test.py
