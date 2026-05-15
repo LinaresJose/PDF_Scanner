@@ -40,15 +40,15 @@ RE_RUTA = re.compile(
     re.IGNORECASE,
 )
 
-# Estado: Buscar la palabra después de "ESTADO:" (ignorando posibles ruidos como Factura:)
+# Estado: Buscar el texto después de "ESTADO:"
 RE_ESTADO = re.compile(
-    r"ESTADO\s*[:\-]?\s*(?:FACTURA\s*[:\-]?\s*)?ESTADO\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ]{3,20})|ESTADO\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ]{3,20})",
+    r"ESTADO\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ\s]{3,40}?)(?=\s*(?:CIUDAD|MUNICIPIO|FACTURA|FECHA|RUTA|RECLAMO|EMPRESA|CLIENTE|RIF|$|\n))",
     re.IGNORECASE,
 )
 
-# Ciudad / Municipio: Buscar después de etiquetas CIUDAD o EMPRESA (a veces el OCR las confunde)
+# Ciudad / Municipio: Buscar el texto después de "CIUDAD:"
 RE_CIUDAD = re.compile(
-    r"(?:CIUDAD|MUNICIPIO|EMPRESA)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ]{3,25})",
+    r"(?:CIUDAD|MUNICIPIO|EMPRESA)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ\s]{3,40}?)(?=\s*(?:ESTADO|FACTURA|FECHA|RUTA|RECLAMO|CLIENTE|RIF|$|\n))",
     re.IGNORECASE,
 )
 
@@ -166,26 +166,28 @@ def extraer_campos(texto: str) -> Dict[str, str]:
         texto_geo = re.sub(re.escape(ignorar), " ", texto_geo, flags=re.IGNORECASE)
 
     # ── ESTADO ──
-    # Intento 1: Por etiqueta (sobre el texto completo)
-    estado_match = RE_ESTADO.search(texto)
-    estado_val = ""
-    if estado_match:
-        estado_val = estado_match.group(1) or estado_match.group(2) or ""
-        estado_val = _limpiar(estado_val)
-    
-    # Intento 2: Búsqueda por lista blanca (sobre el texto filtrado)
-    estado_desde_lista = _buscar_en_lista(texto_geo, ESTADOS_VENEZUELA)
-    estado_final = estado_desde_lista if estado_desde_lista else estado_val
+    estado_val = _buscar_primero(RE_ESTADO, texto)
+    if estado_val:
+        estado_validado = _buscar_en_lista(estado_val, ESTADOS_VENEZUELA)
+        estado_val = estado_validado if estado_validado else ""
+        
+    if not estado_val:
+        estado_val = _buscar_en_lista(texto_geo, ESTADOS_VENEZUELA)
+        
+    estado_final = estado_val.upper() if estado_val else ""
 
     # ── CIUDAD ──
-    # Intento 1: Por etiqueta
     ciudad_val = _buscar_primero(RE_CIUDAD, texto)
-    if ciudad_val and any(tag in ciudad_val.upper() for tag in ["CONDUCTOR", "EMPRESA"]):
-        ciudad_val = ""
-    
-    # Intento 2: Búsqueda por lista blanca (sobre el texto filtrado)
-    ciudad_desde_lista = _buscar_en_lista(texto_geo, CIUDADES_VENEZUELA)
-    ciudad_final = ciudad_desde_lista if ciudad_desde_lista else ciudad_val
+    if ciudad_val:
+        ciudad_validada = _buscar_en_lista(ciudad_val, CIUDADES_VENEZUELA)
+        ciudad_val = ciudad_validada if ciudad_validada else ""
+        
+    if not ciudad_val:
+        ciudad_val = _buscar_en_lista(texto_geo, CIUDADES_VENEZUELA)
+        
+    ciudad_final = ciudad_val.upper() if ciudad_val else ""
+    if ciudad_final and any(tag in ciudad_final for tag in ["CONDUCTOR", "EMPRESA"]):
+        ciudad_final = ""
 
     campos = {
         "grupo":   _buscar_primero(RE_GRUPO, texto, grupo=1),

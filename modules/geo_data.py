@@ -13,6 +13,7 @@ ESTADOS_VENEZUELA = [
     "Cojedes",
     "Delta Amacuro",
     "Distrito Capital",
+    "Distrito Federal",
     "Falcón",
     "Guárico",
     "Lara",

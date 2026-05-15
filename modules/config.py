@@ -10,10 +10,10 @@ import sys
 def obtener_ruta_poppler():
     """Obtiene la ruta de los binarios de Poppler.
     Si está empaquetado con PyInstaller, usa _MEIPASS.
-    Si no, usa la ruta de desarrollo local."""
+    Si no, usa la ruta relativa del proyecto."""
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, 'poppler', 'bin')
-    return r"C:\poppler\poppler-26.02.0\Library\bin"
+    return os.path.join(os.path.dirname(__file__), "..", "poppler", "Library", "bin")
 
 CONFIG = {
     # ── Rutas ────────────────────────────────────────────────────────────────
