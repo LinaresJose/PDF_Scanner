@@ -16,52 +16,57 @@ import re
 import logging
 from typing import Dict
 
+from modules.geo_data import ESTADOS_VENEZUELA, CIUDADES_VENEZUELA
+from modules.config import CONFIG
+
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Patrones Regex compilados (compilar una sola vez mejora el rendimiento)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Fecha: DD/MM/AAAA, DD-MM-AAAA, DD.MM.AAAA (con años de 2 o 4 dígitos)
+# Grupo: Febeca, Sillaca, Beval
+RE_GRUPO = re.compile(r"\b(Febeca|Sillaca|Beval)\b", re.IGNORECASE)
+
+# Fecha: DD/MM/AAAA
 RE_FECHA = re.compile(
     r"\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.](?:\d{4}|\d{2}))\b",
     re.IGNORECASE,
 )
 
-# Ruta: "Ruta:", "RUTA:", seguida de texto hasta fin de línea
+# Ruta
 RE_RUTA = re.compile(
-    r"RUTA\s*[:\-]?\s*([^\n\r]{2,60})",
+    r"RUTA\s*[:\-]?\s*([A-Z0-9ÁÉÍÓÚÑ\s]{2,40})",
     re.IGNORECASE,
 )
 
-# Estado: "Estado:", "ESTADO:" seguida de texto
+# Estado: Buscar la palabra después de "ESTADO:" (ignorando posibles ruidos como Factura:)
 RE_ESTADO = re.compile(
-    r"ESTADO\s*[:\-]?\s*([^\n\r]{2,50})",
+    r"ESTADO\s*[:\-]?\s*(?:FACTURA\s*[:\-]?\s*)?ESTADO\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ]{3,20})|ESTADO\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ]{3,20})",
     re.IGNORECASE,
 )
 
-# Ciudad / Municipio: "Ciudad:", "Municipio:"
+# Ciudad / Municipio: Buscar después de etiquetas CIUDAD o EMPRESA (a veces el OCR las confunde)
 RE_CIUDAD = re.compile(
-    r"(?:CIUDAD|MUNICIPIO)\s*[:\-]?\s*([^\n\r]{2,50})",
+    r"(?:CIUDAD|MUNICIPIO|EMPRESA)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ]{3,25})",
     re.IGNORECASE,
 )
 
-# Factura: "Factura N°", "Factura #", "N° de Control", "No. Control"
-# Captura el número (puede incluir guiones y letras)
+# Factura: Buscar número de 5 a 15 dígitos después de la etiqueta (permitiendo texto basura)
 RE_FACTURA = re.compile(
-    r"(?:FACTURA|N[°o\.]\s*(?:DE\s*)?CONTROL|CORRELATIVO|COMPROBANTE)\s*[:\-#°N°\s]*([A-Z0-9\-]{3,25})",
+    r"(?:FACTURA|CONTROL|CORRELATIVO)\s*[:\-#°N°\s]*[A-Z\s:]*?(\d{5,15})",
     re.IGNORECASE,
 )
 
-# Reclamo: "Reclamo:", "No. Reclamo", seguido de identificador
+# Reclamo
 RE_RECLAMO = re.compile(
-    r"(?:RECLAMO|RECLAMACI[OÓ]N)\s*[:\-#°N°\s]*([A-Z0-9\-]{2,25})",
+    r"(?:RECLAMO|RECLAMACI[OÓ]N)\s*[:\-#°N°\s]*([A-Z0-9\-]{4,25})",
     re.IGNORECASE,
 )
 
-# Empresa: "Empresa:", "Razón Social:", "Proveedor:", o línea con S.A./C.A./R.L.
+# Empresa / Cliente
 RE_EMPRESA_ETIQUETA = re.compile(
-    r"(?:EMPRESA|RAZ[OÓ]N\s*SOCIAL|PROVEEDOR|CLIENTE|NOMBRE)\s*[:\-]?\s*([^\n\r]{3,80})",
+    r"(?:CLIENTE|RAZ[OÓ]N\s*SOCIAL|PROVEEDOR|NOMBRE)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ0-9\s\.,&]{3,60})(?=\s*(?:RIF|DIRECCI[OÓ]N|TEL[EÉ]F|FECHA|$))",
     re.IGNORECASE,
 )
 RE_EMPRESA_SUFIJO = re.compile(
@@ -69,7 +74,7 @@ RE_EMPRESA_SUFIJO = re.compile(
     re.IGNORECASE,
 )
 
-# RIF venezolano: V/J/G/E/P-XXXXXXXX-X (con o sin guiones)
+# RIF venezolano
 RE_RIF = re.compile(
     r"\b([VJGEP])\s*[\-]?\s*(\d{7,9})\s*[\-]?\s*(\d{1})\b",
     re.IGNORECASE,
@@ -124,25 +129,70 @@ def _buscar_empresa(texto: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+def _buscar_en_lista(texto: str, lista: list) -> str:
+    """Busca palabras exactas de una lista en el texto y retorna la primera encontrada,
+    incluyendo un número opcional que le siga SIEMPRE QUE sea menor a 9."""
+    texto_limpio = texto.upper()
+    for item in lista:
+        # Buscar el item y opcionalmente un número (1 o más dígitos)
+        patron = re.compile(rf"\b{re.escape(item.upper())}\s*(\d+)?\b")
+        match = patron.search(texto_limpio)
+        if match:
+            num_str = match.group(1)
+            if num_str:
+                try:
+                    # Solo incluir el número si su valor numérico es menor a 9
+                    if int(num_str) < 9:
+                        return f"{item} {num_str}"
+                except ValueError:
+                    pass
+            return item
+    return ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 def extraer_campos(texto: str) -> Dict[str, str]:
     """
     Extrae todos los campos relevantes del texto OCR.
-
-    Args:
-        texto: Texto completo extraído por el motor OCR.
-
-    Returns:
-        Diccionario con los campos extraídos. Los no encontrados son "".
     """
-    # Normalizar texto: reemplazar tabulaciones y múltiples saltos por uno
+    # Normalizar texto
     texto = re.sub(r"\t", " ", texto)
     texto = re.sub(r"\n{3,}", "\n\n", texto)
 
+    # Crear una versión del texto para búsqueda geográfica (sin direcciones propias)
+    texto_geo = texto
+    for ignorar in CONFIG.get("textos_a_ignorar", []):
+        # Usar escape para caracteres especiales y reemplazar por espacios
+        texto_geo = re.sub(re.escape(ignorar), " ", texto_geo, flags=re.IGNORECASE)
+
+    # ── ESTADO ──
+    # Intento 1: Por etiqueta (sobre el texto completo)
+    estado_match = RE_ESTADO.search(texto)
+    estado_val = ""
+    if estado_match:
+        estado_val = estado_match.group(1) or estado_match.group(2) or ""
+        estado_val = _limpiar(estado_val)
+    
+    # Intento 2: Búsqueda por lista blanca (sobre el texto filtrado)
+    estado_desde_lista = _buscar_en_lista(texto_geo, ESTADOS_VENEZUELA)
+    estado_final = estado_desde_lista if estado_desde_lista else estado_val
+
+    # ── CIUDAD ──
+    # Intento 1: Por etiqueta
+    ciudad_val = _buscar_primero(RE_CIUDAD, texto)
+    if ciudad_val and any(tag in ciudad_val.upper() for tag in ["CONDUCTOR", "EMPRESA"]):
+        ciudad_val = ""
+    
+    # Intento 2: Búsqueda por lista blanca (sobre el texto filtrado)
+    ciudad_desde_lista = _buscar_en_lista(texto_geo, CIUDADES_VENEZUELA)
+    ciudad_final = ciudad_desde_lista if ciudad_desde_lista else ciudad_val
+
     campos = {
+        "grupo":   _buscar_primero(RE_GRUPO, texto, grupo=1),
         "fecha":   _buscar_primero(RE_FECHA, texto),
         "ruta":    _buscar_primero(RE_RUTA, texto),
-        "estado":  _buscar_primero(RE_ESTADO, texto),
-        "ciudad":  _buscar_primero(RE_CIUDAD, texto),
+        "estado":  estado_final,
+        "ciudad":  ciudad_final,
         "factura": _buscar_primero(RE_FACTURA, texto),
         "reclamo": _buscar_primero(RE_RECLAMO, texto),
         "empresa": _buscar_empresa(texto),

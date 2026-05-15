@@ -5,6 +5,15 @@ Modifica este archivo para adaptar el programa a tu entorno y documentos.
 """
 
 import os
+import sys
+
+def obtener_ruta_poppler():
+    """Obtiene la ruta de los binarios de Poppler.
+    Si está empaquetado con PyInstaller, usa _MEIPASS.
+    Si no, usa la ruta de desarrollo local."""
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, 'poppler', 'bin')
+    return r"C:\poppler\poppler-26.02.0\Library\bin"
 
 CONFIG = {
     # ── Rutas ────────────────────────────────────────────────────────────────
@@ -22,9 +31,8 @@ CONFIG = {
     # DPI para la conversión PDF → imagen (mayor DPI = mejor calidad, más lento)
     "dpi": 300,
 
-    # Ruta a los binarios de Poppler (necesario en Windows)
-    # Instalado localmente en la carpeta del proyecto (no requiere admin)
-    "poppler_path": r"C:\Users\jlinares\Desktop\Escaner de Recolectas\poppler\Library\bin",
+    # Ruta base de los binarios de Poppler (requeridos por pdf2image en Windows)
+    "poppler_path": obtener_ruta_poppler(),
 
     # ── Preprocesamiento de Imagen ───────────────────────────────────────────
     # Método de umbralización: "otsu" o "adaptativo"
@@ -36,6 +44,7 @@ CONFIG = {
     # ── Campos de Salida (orden de columnas en el Excel) ─────────────────────
     "campos_salida": [
         "archivo",
+        "grupo",
         "fecha",
         "ruta",
         "estado",
@@ -52,4 +61,11 @@ CONFIG = {
 
     # Color de cabecera en el Excel (formato ARGB hex)
     "color_cabecera": "FF1F3A5F",  # Azul oscuro
+
+    # ── Textos a Ignorar (Direcciones propias, etc.) ─────────────────────────
+    "textos_a_ignorar": [
+        "Av. Michelena c/c Calle norte-Sur, Nro 05, Zona Ind Municipal Norte Nro 91-100, Valencia, Edo Carabobo",
+        "Av. Michelena c/c Calle norte-Sur",
+        "Zona Ind Municipal Norte",
+    ],
 }

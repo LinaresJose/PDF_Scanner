@@ -80,8 +80,6 @@ def procesar_pdf(ruta_pdf: Path) -> dict:
             texto_pagina = extraer_texto(imagen_procesada)
             texto_completo += f"\n--- PÁGINA {idx + 1} ---\n{texto_pagina}"
 
-        logger.debug(f"  Texto extraído ({len(texto_completo)} chars)")
-
         # Paso 4: Extracción de campos con Regex
         campos = extraer_campos(texto_completo)
         campos["archivo"] = nombre_archivo
@@ -95,21 +93,21 @@ def procesar_pdf(ruta_pdf: Path) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def main():
+def main(carpeta_entrada=None, archivo_salida=None, progress_callback=None):
     """Punto de entrada principal del programa."""
 
-    carpeta_entrada = Path(CONFIG["carpeta_pdfs"])
-    archivo_salida = Path(CONFIG["archivo_excel"])
+    carpeta_entrada = Path(carpeta_entrada) if carpeta_entrada else Path(CONFIG["carpeta_pdfs"])
+    archivo_salida = Path(archivo_salida) if archivo_salida else Path(CONFIG["archivo_excel"])
 
     # ── Validaciones iniciales ───────────────────────────────────────────────
     if not carpeta_entrada.exists():
         logger.error(f"La carpeta de entrada no existe: {carpeta_entrada}")
-        sys.exit(1)
+        return
 
     pdfs = sorted(carpeta_entrada.glob("*.pdf"))
     if not pdfs:
         logger.warning(f"No se encontraron archivos PDF en: {carpeta_entrada}")
-        sys.exit(0)
+        return
 
     logger.info("=" * 60)
     logger.info("  ESCANER DE RECOLECTAS - Inicio del procesamiento")
@@ -119,20 +117,30 @@ def main():
     logger.info(f"  PDFs encontrados: {len(pdfs)}")
     logger.info("=" * 60)
 
-    # ── Procesamiento con barra de progreso ──────────────────────────────────
+    # ── Procesamiento ────────────────────────────────────────────────────────
     registros = []
-    with tqdm(
-        total=len(pdfs),
-        desc="Procesando PDFs",
-        unit="archivo",
-        colour="cyan",
-        bar_format="{l_bar}{bar:30}{r_bar}",
-    ) as barra:
-        for ruta_pdf in pdfs:
+    total_pdfs = len(pdfs)
+    
+    if progress_callback:
+        # Modo GUI: usar el callback en lugar de tqdm
+        for idx, ruta_pdf in enumerate(pdfs, 1):
             resultado = procesar_pdf(ruta_pdf)
             registros.append(resultado)
-            barra.update(1)
-            barra.set_postfix({"último": ruta_pdf.stem[:20]})
+            progress_callback(idx, total_pdfs, ruta_pdf.name)
+    else:
+        # Modo CLI: usar tqdm
+        with tqdm(
+            total=total_pdfs,
+            desc="Procesando PDFs",
+            unit="archivo",
+            colour="cyan",
+            bar_format="{l_bar}{bar:30}{r_bar}",
+        ) as barra:
+            for ruta_pdf in pdfs:
+                resultado = procesar_pdf(ruta_pdf)
+                registros.append(resultado)
+                barra.update(1)
+                barra.set_postfix({"último": ruta_pdf.stem[:20]})
 
     # ── Exportar a Excel ─────────────────────────────────────────────────────
     df = pd.DataFrame(registros)
@@ -144,8 +152,8 @@ def main():
 
     logger.info("=" * 60)
     logger.info("  PROCESAMIENTO COMPLETADO")
-    logger.info(f"  ✔ Exitosos : {exitosos}")
-    logger.info(f"  ✘ Con error: {fallidos}")
+    logger.info(f"  [OK] Exitosos : {exitosos}")
+    logger.info(f"  [XX] Con error: {fallidos}")
     logger.info(f"  Archivo generado: {archivo_salida.resolve()}")
     logger.info("=" * 60)
 

@@ -20,3 +20,11 @@ tesseract/
 pdfs/
 extract_tess.py
 gen_test.py
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Tests
+test_*.py

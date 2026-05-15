@@ -44,7 +44,7 @@ async def _extract_text_async(imagen: Image.Image) -> str:
     writer = DataWriter(stream)
     
     # Escribir los bytes. write_bytes recibe un buffer u objeto similar a bytes
-    writer.write_bytes(list(img_bytes))
+    writer.write_bytes(img_bytes)
     await writer.store_async()
     stream.seek(0)
     
