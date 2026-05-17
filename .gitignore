@@ -28,3 +28,7 @@ dist/
 
 # Tests
 test_*.py
+
+# Configuraciones locales de usuario
+settings.json
+Facturas_Verificar.sql

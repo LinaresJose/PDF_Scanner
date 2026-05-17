@@ -10,10 +10,21 @@ import sys
 def obtener_ruta_poppler():
     """Obtiene la ruta de los binarios de Poppler.
     Si está empaquetado con PyInstaller, usa _MEIPASS.
-    Si no, usa la ruta relativa del proyecto."""
+    Si no, usa la ruta relativa o la ruta global del sistema."""
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, 'poppler', 'bin')
-    return os.path.join(os.path.dirname(__file__), "..", "poppler", "Library", "bin")
+    
+    # 1. Intentar ruta relativa en el proyecto
+    ruta_relativa = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "poppler", "Library", "bin"))
+    if os.path.exists(ruta_relativa):
+        return ruta_relativa
+        
+    # 2. Fallback a la instalación global de Windows
+    ruta_global = r"C:\poppler\poppler-26.02.0\Library\bin"
+    if os.path.exists(ruta_global):
+        return ruta_global
+        
+    return None
 
 CONFIG = {
     # ── Rutas ────────────────────────────────────────────────────────────────
@@ -53,6 +64,7 @@ CONFIG = {
         "reclamo",
         "empresa",
         "rif",
+        "coincidencia",
         "error",
     ],
 

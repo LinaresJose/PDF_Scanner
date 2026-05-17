@@ -63,3 +63,40 @@ def convertir_pdf_a_imagenes(ruta_pdf: Path) -> List[Image.Image]:
         raise RuntimeError(f"PDF dañado o protegido con contraseña: {exc}")
     except Exception as exc:
         raise RuntimeError(f"Error al convertir PDF: {exc}")
+
+def extraer_paginas_a_pdf(ruta_pdf_origen: Path, ruta_pdf_destino: Path, paginas_0_indexed: List[int]) -> None:
+    """
+    Extrae páginas específicas de un PDF original y las guarda en un nuevo PDF.
+    Preserva la calidad y texto original usando pypdf.
+    
+    Args:
+        ruta_pdf_origen: Ruta al archivo PDF fuente.
+        ruta_pdf_destino: Ruta donde se guardará el nuevo PDF.
+        paginas_0_indexed: Lista de índices de páginas (comenzando en 0) a extraer.
+    """
+    if not paginas_0_indexed:
+        return
+        
+    try:
+        from pypdf import PdfReader, PdfWriter
+        
+        reader = PdfReader(str(ruta_pdf_origen))
+        writer = PdfWriter()
+        
+        # Añadir cada página que tuvo coincidencia
+        for num_pag in sorted(paginas_0_indexed):
+            if num_pag < len(reader.pages):
+                writer.add_page(reader.pages[num_pag])
+                
+        # Asegurar que el directorio de destino exista
+        Path(ruta_pdf_destino).parent.mkdir(parents=True, exist_ok=True)
+                
+        with open(ruta_pdf_destino, "wb") as f_out:
+            writer.write(f_out)
+            
+        logger.info(f"PDF con {len(paginas_0_indexed)} coincidencias guardado en: {ruta_pdf_destino.name}")
+        
+    except ImportError:
+        logger.error("pypdf no está instalado. Ejecuta: pip install pypdf")
+    except Exception as e:
+        logger.error(f"Error al separar el PDF {ruta_pdf_origen}: {e}")
