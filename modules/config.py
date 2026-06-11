@@ -55,6 +55,8 @@ CONFIG = {
     # ── Campos de Salida (orden de columnas en el Excel) ─────────────────────
     "campos_salida": [
         "archivo",
+        "pagina",
+        "fecha_escaneo",
         "grupo",
         "fecha",
         "ruta",
@@ -62,8 +64,9 @@ CONFIG = {
         "ciudad",
         "factura",
         "reclamo",
-        "empresa",
-        "rif",
+        "articulo",
+        "vendedor",
+        "cliente",
         "coincidencia",
         "error",
     ],

@@ -15,6 +15,7 @@ import os
 import sys
 import logging
 from pathlib import Path
+from datetime import datetime
 
 # ── Módulos propios ──────────────────────────────────────────────────────────
 from modules.pdf_processor import convertir_pdf_a_imagenes, extraer_paginas_a_pdf
@@ -121,6 +122,8 @@ def procesar_pdf(ruta_pdf: Path, facturas_sql: set, archivo_salida: Path, progre
                 
             campos = extraer_campos(texto_pagina)
             campos["archivo"] = f"{nombre_archivo} (Pág {idx+1})"
+            campos["pagina"] = idx + 1
+            campos["fecha_escaneo"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             campos["error"] = ""
             campos["coincidencia"] = ""
 

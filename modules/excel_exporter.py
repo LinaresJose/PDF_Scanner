@@ -19,17 +19,20 @@ logger = logging.getLogger(__name__)
 
 # Mapeo de nombres de columna internos → etiquetas legibles en el Excel
 COLUMNAS_LEGIBLES = {
-    "archivo": "Archivo PDF",
-    "grupo":   "Grupo / Origen",
-    "fecha":   "Fecha",
-    "ruta":    "Ruta",
-    "estado":  "Estado",
-    "ciudad":  "Ciudad",
-    "factura": "Factura / N° Control",
-    "reclamo": "Reclamo",
-    "empresa": "Empresa",
-    "rif":     "RIF",
-    "error":   "Error",
+    "archivo":       "Archivo PDF",
+    "pagina":        "Página",
+    "fecha_escaneo": "Fecha de Escaneo",
+    "grupo":         "Grupo / Origen",
+    "fecha":         "Fecha",
+    "ruta":          "Ruta",
+    "estado":        "Estado",
+    "ciudad":        "Ciudad",
+    "factura":       "Factura / N° Control",
+    "reclamo":       "Reclamo",
+    "articulo":      "Artículo",
+    "vendedor":      "Vendedor",
+    "cliente":       "Cliente",
+    "error":         "Error",
 }
 
 

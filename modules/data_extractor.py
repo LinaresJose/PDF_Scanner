@@ -3,13 +3,15 @@ data_extractor.py — Extracción de campos mediante expresiones regulares.
 
 Busca en el texto OCR los siguientes datos:
   - Fecha          : DD/MM/AAAA, DD-MM-AAAA, etc.
-  - Ruta           : Etiqueta "Ruta:" seguida de texto.
+  - Ruta           : Número de 2 dígitos a la derecha de la etiqueta.
   - Estado         : Etiqueta "Estado:" seguida de texto.
   - Ciudad         : Etiqueta "Ciudad:" seguida de texto.
   - Factura        : Número de control o correlativo.
-  - Reclamo        : Identificador numérico o alfanumérico.
-  - Empresa        : Nombre de empresa (etiqueta o posición).
+  - Reclamo        : Código que empieza con 'N' seguido de números (derecha).
   - RIF            : Patrón venezolano (V/J/G/E-XXXXXXXX-X).
+  - Articulo       : Formato XX-XX-XXX debajo de la etiqueta "Articulo".
+  - Vendedor       : Número de hasta 3 cifras a la derecha.
+  - Cliente        : Número de varias cifras a la derecha.
 """
 
 import re
@@ -34,9 +36,9 @@ RE_FECHA = re.compile(
     re.IGNORECASE,
 )
 
-# Ruta
+# Ruta: buscar a la derecha de la etiqueta hasta encontrar un número de exactamente 2 dígitos
 RE_RUTA = re.compile(
-    r"RUTA\s*[:\-]?\s*([A-Z0-9ÁÉÍÓÚÑ\s]{2,40})",
+    r"RUTA\s*[:\-]?\s*(?:[^\n\d]*?)(\b\d{2}\b)",
     re.IGNORECASE,
 )
 
@@ -58,15 +60,37 @@ RE_FACTURA = re.compile(
     re.IGNORECASE,
 )
 
-# Reclamo
+# Reclamo: buscar a la derecha hasta encontrar valor que empiece con 'N' (con o sin guión) seguido de números
 RE_RECLAMO = re.compile(
-    r"(?:RECLAMO|RECLAMACI[OÓ]N)\s*[:\-#°N°\s]*([A-Z0-9\-]{4,25})",
+    r"(?:RECLAMO|RECLAMACI[OÓ]N)\s*[:\-]?\s*(?:[^\nN]*?)(N-?\d{1,20})",
     re.IGNORECASE,
 )
 
-# Empresa / Cliente
+# Artículo: formato XX-XX-XXX debajo de la etiqueta "Articulo" (en la siguiente línea)
+RE_ARTICULO = re.compile(
+    r"ART[IÍ]CULO[S]?\s*[:\-]?\s*(?:[^\n]*\n)?\s*(\d{2}-\d{2}-\d{3}(?:-\d+)?)",
+    re.IGNORECASE,
+)
+# Fallback: buscar el patrón XX-XX-XXX directamente en el texto
+RE_ARTICULO_DIRECTO = re.compile(
+    r"\b(\d{2}-\d{2}-\d{3}(?:-\d+)?)\b",
+)
+
+# Vendedor: buscar a la derecha de la etiqueta, número de hasta 3 cifras
+RE_VENDEDOR = re.compile(
+    r"VENDEDOR\s*[:\-]?\s*(?:[^\n\d]*?)(\b\d{1,3}\b)",
+    re.IGNORECASE,
+)
+
+# Cliente: buscar a la derecha de la etiqueta, número de varias cifras (4+)
+RE_CLIENTE = re.compile(
+    r"CLIENTE\s*[:\-]?\s*(?:[^\n\d]*?)(\b\d{4,}\b)",
+    re.IGNORECASE,
+)
+
+# Empresa / Cliente (para compatibilidad)
 RE_EMPRESA_ETIQUETA = re.compile(
-    r"(?:CLIENTE|RAZ[OÓ]N\s*SOCIAL|PROVEEDOR|NOMBRE)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ0-9\s\.,&]{3,60})(?=\s*(?:RIF|DIRECCI[OÓ]N|TEL[EÉ]F|FECHA|$))",
+    r"(?:RAZ[OÓ]N\s*SOCIAL|PROVEEDOR|NOMBRE)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ0-9\s\.,&]{3,60})(?=\s*(?:RIF|DIRECCI[OÓ]N|TEL[EÉ]F|FECHA|$))",
     re.IGNORECASE,
 )
 RE_EMPRESA_SUFIJO = re.compile(
@@ -125,6 +149,20 @@ def _buscar_empresa(texto: str) -> str:
     if match:
         return _limpiar(match.group(1))
 
+    return ""
+
+
+def _buscar_articulo(texto: str) -> str:
+    """Busca el artículo con formato XX-XX-XXX debajo de la etiqueta 'Articulo',
+    o directamente en el texto si no hay etiqueta."""
+    # Primero buscar junto a la etiqueta (en misma línea o siguiente)
+    match = RE_ARTICULO.search(texto)
+    if match:
+        return _limpiar(match.group(1))
+    # Fallback: buscar el patrón XX-XX-XXX en cualquier parte del texto
+    match = RE_ARTICULO_DIRECTO.search(texto)
+    if match:
+        return _limpiar(match.group(1))
     return ""
 
 
@@ -190,15 +228,16 @@ def extraer_campos(texto: str) -> Dict[str, str]:
         ciudad_final = ""
 
     campos = {
-        "grupo":   _buscar_primero(RE_GRUPO, texto, grupo=1),
-        "fecha":   _buscar_primero(RE_FECHA, texto),
-        "ruta":    _buscar_primero(RE_RUTA, texto),
-        "estado":  estado_final,
-        "ciudad":  ciudad_final,
-        "factura": _buscar_primero(RE_FACTURA, texto),
-        "reclamo": _buscar_primero(RE_RECLAMO, texto),
-        "empresa": _buscar_empresa(texto),
-        "rif":     _buscar_rif(texto),
+        "grupo":    _buscar_primero(RE_GRUPO, texto, grupo=1),
+        "fecha":    _buscar_primero(RE_FECHA, texto),
+        "ruta":     _buscar_primero(RE_RUTA, texto),
+        "estado":   estado_final,
+        "ciudad":   ciudad_final,
+        "factura":  _buscar_primero(RE_FACTURA, texto),
+        "reclamo":  _buscar_primero(RE_RECLAMO, texto),
+        "articulo": _buscar_articulo(texto),
+        "vendedor": _buscar_primero(RE_VENDEDOR, texto),
+        "cliente":  _buscar_primero(RE_CLIENTE, texto),
     }
 
     # Log informativo de campos encontrados vs vacíos
