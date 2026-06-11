@@ -17,11 +17,11 @@ echo [3/3] Iniciando empaquetado con PyInstaller...
 echo Esto tomara un par de minutos, por favor espera.
 echo Se esta empaquetando Poppler dentro del ejecutable...
 
-pyinstaller --noconfirm ^
+python -m PyInstaller --noconfirm ^
     --onefile ^
     --windowed ^
     --name "EscanerRecolectas" ^
-    --add-binary "C:\poppler\poppler-26.02.0\Library\bin;poppler\bin" ^
+    --add-binary "poppler\Library\bin;poppler\bin" ^
     --hidden-import winrt.windows.media.ocr ^
     --hidden-import winrt.windows.graphics.imaging ^
     --hidden-import winrt.windows.storage.streams ^
