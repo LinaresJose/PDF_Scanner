@@ -25,6 +25,7 @@ COLUMNAS_LEGIBLES = {
     "grupo":         "Grupo / Origen",
     "fecha":         "Fecha",
     "ruta":          "Ruta",
+    "ruta_asignada": "Ruta Asignada",
     "estado":        "Estado",
     "ciudad":        "Ciudad",
     "factura":       "Factura / N° Control",

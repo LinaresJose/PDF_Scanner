@@ -60,6 +60,7 @@ CONFIG = {
         "grupo",
         "fecha",
         "ruta",
+        "ruta_asignada",
         "estado",
         "ciudad",
         "factura",

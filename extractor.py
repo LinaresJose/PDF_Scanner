@@ -223,6 +223,16 @@ def main(carpeta_entrada=None, archivo_salida=None, ruta_sql=None, progress_call
 
     # ── Exportar a Excel ─────────────────────────────────────────────────────
     df = pd.DataFrame(registros)
+    
+    # Eliminar duplicados si tienen el mismo número de Reclamo y misma Fecha
+    if not df.empty and "reclamo" in df.columns and "fecha" in df.columns:
+        # Solo consideramos duplicados aquellos que no tengan el reclamo vacío
+        mask_vacios = df["reclamo"] == ""
+        # Marcar duplicados en Reclamo y Fecha (ignorando el primero)
+        mask_duplicados = df.duplicated(subset=["reclamo", "fecha"], keep="first")
+        # Eliminar las filas que son duplicadas Y que tienen un reclamo válido
+        df = df[~(mask_duplicados & ~mask_vacios)]
+
     exportar_a_excel(df, archivo_salida)
 
     # ── Resumen final ────────────────────────────────────────────────────────

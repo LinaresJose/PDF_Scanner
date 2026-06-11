@@ -18,7 +18,7 @@ import re
 import logging
 from typing import Dict
 
-from modules.geo_data import ESTADOS_VENEZUELA, CIUDADES_VENEZUELA
+from modules.geo_data import ESTADOS_VENEZUELA, CIUDADES_VENEZUELA, CIUDAD_A_RUTA
 from modules.config import CONFIG
 
 logger = logging.getLogger(__name__)
@@ -42,9 +42,9 @@ RE_RUTA = re.compile(
     re.IGNORECASE,
 )
 
-# Estado: Buscar el texto después de "ESTADO:"
+# Estado: Buscar el texto después de "ESTADO:" (ignorando si repiten la palabra "ESTADO")
 RE_ESTADO = re.compile(
-    r"ESTADO\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ\s]{3,40}?)(?=\s*(?:CIUDAD|MUNICIPIO|FACTURA|FECHA|RUTA|RECLAMO|EMPRESA|CLIENTE|RIF|$|\n))",
+    r"ESTADO\s*[:\-]?\s*(?:ESTADO\s+)?([A-ZÁÉÍÓÚÑ\s]{3,40}?)(?=\s*(?:CIUDAD|MUNICIPIO|FACTURA|FECHA|RUTA|RECLAMO|CLIENTE|RIF|$|\n))",
     re.IGNORECASE,
 )
 
@@ -227,17 +227,21 @@ def extraer_campos(texto: str) -> Dict[str, str]:
     if ciudad_final and any(tag in ciudad_final for tag in ["CONDUCTOR", "EMPRESA"]):
         ciudad_final = ""
 
+    # ── RUTA ASIGNADA ──
+    ruta_asignada = CIUDAD_A_RUTA.get(ciudad_final, "") if ciudad_final else ""
+
     campos = {
-        "grupo":    _buscar_primero(RE_GRUPO, texto, grupo=1),
-        "fecha":    _buscar_primero(RE_FECHA, texto),
-        "ruta":     _buscar_primero(RE_RUTA, texto),
-        "estado":   estado_final,
-        "ciudad":   ciudad_final,
-        "factura":  _buscar_primero(RE_FACTURA, texto),
-        "reclamo":  _buscar_primero(RE_RECLAMO, texto),
-        "articulo": _buscar_articulo(texto),
-        "vendedor": _buscar_primero(RE_VENDEDOR, texto),
-        "cliente":  _buscar_primero(RE_CLIENTE, texto),
+        "grupo":         _buscar_primero(RE_GRUPO, texto, grupo=1),
+        "fecha":         _buscar_primero(RE_FECHA, texto),
+        "ruta":          _buscar_primero(RE_RUTA, texto),
+        "estado":        estado_final,
+        "ciudad":        ciudad_final,
+        "ruta_asignada": ruta_asignada,
+        "factura":       _buscar_primero(RE_FACTURA, texto),
+        "reclamo":       _buscar_primero(RE_RECLAMO, texto),
+        "articulo":      _buscar_articulo(texto),
+        "vendedor":      _buscar_primero(RE_VENDEDOR, texto),
+        "cliente":       _buscar_primero(RE_CLIENTE, texto),
     }
 
     # Log informativo de campos encontrados vs vacíos
