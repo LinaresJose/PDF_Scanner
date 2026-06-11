@@ -53,13 +53,13 @@ logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def procesar_pdf(ruta_pdf: Path, facturas_sql: set, archivo_salida: Path, progress_callback=None) -> list:
+def procesar_pdf(ruta_pdf: Path, facturas_sql: set, archivo_salida: Path, progress_callback=None, nombre_mostrar: str = None) -> list:
     """
     Pipeline completo para un único archivo PDF por página.
     Returns:
         list de dicts con los campos extraídos por página.
     """
-    nombre_archivo = ruta_pdf.name
+    nombre_archivo = nombre_mostrar if nombre_mostrar else ruta_pdf.name
     logger.info(f"  Procesando: {nombre_archivo}")
     registros_pdf = []
 
@@ -177,7 +177,7 @@ def main(carpeta_entrada=None, archivo_salida=None, ruta_sql=None, progress_call
         logger.error(f"La carpeta de entrada no existe: {carpeta_entrada}")
         return
 
-    pdfs = sorted(carpeta_entrada.glob("*.pdf"))
+    pdfs = sorted(carpeta_entrada.rglob("*.pdf"))
     if not pdfs:
         logger.warning(f"No se encontraron archivos PDF en: {carpeta_entrada}")
         return
@@ -198,8 +198,9 @@ def main(carpeta_entrada=None, archivo_salida=None, ruta_sql=None, progress_call
     if progress_callback:
         # Modo GUI: usar el callback en lugar de tqdm
         for idx, ruta_pdf in enumerate(pdfs, 1):
-            progress_callback(progreso={"actual": idx, "total": total_pdfs, "archivo": ruta_pdf.name})
-            resultados = procesar_pdf(ruta_pdf, facturas_sql, archivo_salida, progress_callback)
+            nombre_mostrar = str(ruta_pdf.relative_to(carpeta_entrada))
+            progress_callback(progreso={"actual": idx, "total": total_pdfs, "archivo": nombre_mostrar})
+            resultados = procesar_pdf(ruta_pdf, facturas_sql, archivo_salida, progress_callback, nombre_mostrar)
             registros.extend(resultados)
     else:
         # Modo CLI: usar tqdm
@@ -211,10 +212,11 @@ def main(carpeta_entrada=None, archivo_salida=None, ruta_sql=None, progress_call
             bar_format="{l_bar}{bar:30}{r_bar}",
         ) as barra:
             for ruta_pdf in pdfs:
-                resultados = procesar_pdf(ruta_pdf, facturas_sql, archivo_salida)
+                nombre_mostrar = str(ruta_pdf.relative_to(carpeta_entrada))
+                resultados = procesar_pdf(ruta_pdf, facturas_sql, archivo_salida, progress_callback=None, nombre_mostrar=nombre_mostrar)
                 registros.extend(resultados)
                 barra.update(1)
-                barra.set_postfix({"último": ruta_pdf.stem[:20]})
+                barra.set_postfix({"último": nombre_mostrar[:20]})
 
     # ── Exportar a Excel ─────────────────────────────────────────────────────
     df = pd.DataFrame(registros)
