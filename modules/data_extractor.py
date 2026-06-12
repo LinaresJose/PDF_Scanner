@@ -36,9 +36,9 @@ RE_FECHA = re.compile(
     re.IGNORECASE,
 )
 
-# Ruta: buscar a la derecha de la etiqueta hasta encontrar un número de exactamente 2 dígitos
+# Ruta: buscar a la derecha de la etiqueta (incluso en la siguiente línea) hasta encontrar un número de exactamente 2 dígitos
 RE_RUTA = re.compile(
-    r"RUTA\s*[:\-]?\s*(?:[^\n\d]*?)(\b\d{2}\b)",
+    r"RUTA\s*[:\-]?[\s\S]{0,80}?(\b\d{2}\b)",
     re.IGNORECASE,
 )
 
@@ -60,9 +60,9 @@ RE_FACTURA = re.compile(
     re.IGNORECASE,
 )
 
-# Reclamo: buscar a la derecha hasta encontrar valor que empiece con 'N' (con o sin guión) seguido de números
+# Reclamo: buscar a la derecha (o abajo) hasta encontrar valor que empiece con 'N' seguido de hasta 10 números
 RE_RECLAMO = re.compile(
-    r"(?:RECLAMO|RECLAMACI[OÓ]N)\s*[:\-]?\s*(?:[^\nN]*?)(N-?\d{1,20})",
+    r"(?:RECLAMO|RECLAMACI[OÓ]N)[\s\S]{0,120}?\b(N\s*-?\s*\d{1,10})\b",
     re.IGNORECASE,
 )
 
